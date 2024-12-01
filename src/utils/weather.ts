@@ -5,6 +5,58 @@ import type { WeatherForecast } from '../types/weather';
 const API_KEY = 'dc19c4b3e592f0fb95051dbb1bc9869a';
 const BASE_URL = 'https://api.openweathermap.org/data/2.5';
 
+// Default coordinates (New York City)
+const DEFAULT_COORDS = {
+  lat: 40.7128,
+  lon: -74.0060
+};
+
+export async function getLocation(): Promise<{ lat: number; lon: number }> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      resolve(DEFAULT_COORDS);
+      return;
+    }
+
+    const geolocationOptions = {
+      enableHighAccuracy: false, // Set to false for faster response
+      timeout: 10000, // Increased timeout for mobile
+      maximumAge: 300000 // Cache location for 5 minutes
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          lat: position.coords.latitude,
+          lon: position.coords.longitude
+        });
+      },
+      (error) => {
+        console.warn('Geolocation error:', error.message);
+        resolve(DEFAULT_COORDS);
+      },
+      geolocationOptions
+    );
+  });
+}
+
+function mapWeatherCondition(condition: string): string {
+  switch (condition.toLowerCase()) {
+    case 'clear':
+      return 'sunny';
+    case 'clouds':
+      return 'cloudy';
+    case 'rain':
+    case 'drizzle':
+    case 'thunderstorm':
+      return 'rainy';
+    case 'snow':
+      return 'snowy';
+    default:
+      return 'partly-cloudy';
+  }
+}
+
 export async function getForecast(lat: number, lon: number): Promise<WeatherForecast[]> {
   try {
     const response = await fetch(
@@ -18,8 +70,7 @@ export async function getForecast(lat: number, lon: number): Promise<WeatherFore
     );
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Weather API error: ${errorData.message || response.status}`);
+      throw new Error(`Weather API error: ${response.status}`);
     }
 
     const data = await response.json();
@@ -53,31 +104,13 @@ export async function getForecast(lat: number, lon: number): Promise<WeatherFore
     }
 
     if (dailyForecasts.length === 0) {
-      throw new Error('No forecast data available');
+      return getMockForecast();
     }
 
     return dailyForecasts;
   } catch (error) {
     console.error('Error fetching weather:', error);
-    // Return mock data as fallback
     return getMockForecast();
-  }
-}
-
-function mapWeatherCondition(condition: string): string {
-  switch (condition.toLowerCase()) {
-    case 'clear':
-      return 'sunny';
-    case 'clouds':
-      return 'cloudy';
-    case 'rain':
-    case 'drizzle':
-    case 'thunderstorm':
-      return 'rainy';
-    case 'snow':
-      return 'snowy';
-    default:
-      return 'partly-cloudy';
   }
 }
 
@@ -105,7 +138,6 @@ export async function getSunTimes(lat: number, lon: number) {
     };
   } catch (error) {
     console.error('Error fetching sun times:', error);
-    // Return mock data as fallback
     return {
       sunrise: '6:30 AM',
       sunset: '7:30 PM'

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Sunrise, Sunset } from 'lucide-react';
-import { getSunTimes } from '../utils/weather';
+import { getSunTimes, getLocation } from '../utils/weather';
 
 interface SunTime {
   sunrise: string;
@@ -18,29 +18,14 @@ export function SunTimes() {
     async function loadSunTimes() {
       try {
         setError(null);
-        if ('geolocation' in navigator) {
-          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              timeout: 5000,
-              maximumAge: 0,
-              enableHighAccuracy: true
-            });
-          });
-
-          if (!mounted) return;
-
-          const { latitude, longitude } = position.coords;
-          const times = await getSunTimes(latitude, longitude);
-          
-          if (!mounted) return;
-          setSunTimes(times);
-        } else {
-          // Use New York coordinates as fallback
-          const times = await getSunTimes(40.7128, -74.0060);
-          if (mounted) {
-            setSunTimes(times);
-          }
-        }
+        const coords = await getLocation();
+        
+        if (!mounted) return;
+        
+        const times = await getSunTimes(coords.lat, coords.lon);
+        
+        if (!mounted) return;
+        setSunTimes(times);
       } catch (err) {
         console.error('Error fetching sun times:', err);
         if (mounted) {
@@ -54,7 +39,6 @@ export function SunTimes() {
     }
 
     loadSunTimes();
-    // Refresh sun times data every hour
     const interval = setInterval(loadSunTimes, 60 * 60 * 1000);
 
     return () => {
